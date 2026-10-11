@@ -27,10 +27,15 @@ class BorrowingService {
         $title = $this->titleRepository->findById($titleId);
             
         if ($member === null) {
-            throw new \RuntimeException("Member not found: {$memberId}");
+            throw new BorrowingException("Member not found: {$memberId}");
         }
         if ($title === null) {
-            throw new \RuntimeException("Title not found: {$titleId}");
+            throw new BorrowingException("Title not found: {$titleId}");
+        }
+
+        if (!$member->canBorrow($clock)) {
+            $reasons = $member->whyCantBorrow($clock);
+            throw new BorrowingException($reasons[0] ?? 'Member cannot borrow at this time.');
         }
 
         // Domain logic
