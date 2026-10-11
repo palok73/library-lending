@@ -46,11 +46,14 @@ class Member extends Entity {
 
     // Loans 
 
-     public function renewLoan(string $titleId,bool $titleReserved,string $copyId, ClockInterface $clock):void {
-        if ($titleReserved)
-            throw new RenewalException("Title: $titleId is reserved, can't renew;");
+     public function renewLoan(string $copyId, bool $titleReserved, bool $newRelease, ClockInterface $clock):void {
+        if ($this->hasOverdueLoans($clock)) {
+            throw new RenewalException("Member cant renew loan, because of loans in overdue.");
+        }
         $loan = $this->findActiveLoanForCopyId($copyId);
-        $loan->renew($clock);
+        if ($loan===null)
+                throw new RenewalException("No loan for this copyId: {$copyId} found.");
+        $loan->renew($titleReserved,$newRelease,$clock);
     }
 
     protected function countActiveLoans():int {
@@ -70,7 +73,7 @@ class Member extends Entity {
             $titleId,
             $copyId,
             $clock->now(),
-            $duePeriod,
+            $clock->now()->modify("+{$duePeriod} days"),
         );
         return $loan;
     }
@@ -82,6 +85,14 @@ class Member extends Entity {
                 return $loan;
         }
         return null;
+    }
+
+    protected function hasOverdueLoans(ClockInterface $clock): bool {
+        foreach($this->loans as $loan) {
+            if ($loan->isOverdue($clock) && $loan->isActive())
+                return true;
+        }
+        return false;
     }
 
     // Returning

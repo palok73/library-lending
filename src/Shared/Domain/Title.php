@@ -101,14 +101,14 @@ class Title extends Entity
         return null;
     }
 
-        
-    public function duePeriod(ClockInterface $clock):int {
+     
+    public function isNewRelease(ClockInterface $clock):bool {
         $diff = $clock->now()->diff($this->addedDate);
         $releasedMonthsAgo = 12*$diff->y + $diff->m;
-        if ($releasedMonthsAgo < LibraryPolicy::NEW_RELEASE_MAX_AGE_IN_MONTHS) {
-            return LibraryPolicy::DUE_DAYS_NEW_RELEASE;
-        }
-        return LibraryPolicy::DUE_DAYS_STANDARD;
+        return $releasedMonthsAgo < LibraryPolicy::NEW_RELEASE_MAX_AGE_IN_MONTHS;
+    }
+    public function duePeriod(ClockInterface $clock):int {
+        return $this->isNewRelease($clock) ? LibraryPolicy::DUE_DAYS_NEW_RELEASE : LibraryPolicy::DUE_DAYS_STANDARD;
     }
 
     // Returning

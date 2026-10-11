@@ -12,7 +12,7 @@ final class LoanTest extends TestCase
 {
     private function loanBorrowedOn(string $date, int $duePeriod = 28): Loan
     {
-        return new Loan('loan-1', 'member-1', 'title-1', 'copy-1', new DateTimeImmutable($date), $duePeriod);
+        return new Loan('loan-1', 'member-1', 'title-1', 'copy-1', new DateTimeImmutable($date),new DateTimeImmutable($date)->modify("+{$duePeriod} days"));
     }
 
     private function clockAt(string $date): FixedClock

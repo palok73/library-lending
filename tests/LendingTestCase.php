@@ -5,6 +5,7 @@ namespace LibraryLanding\Tests;
 
 use DateTimeImmutable;
 use LibraryLanding\Borrowing\BorrowingService;
+use LibraryLanding\Renewing\RenewalService;
 use LibraryLanding\Reserving\ReservationService;
 use LibraryLanding\Returning\ReturningService;
 use LibraryLanding\Shared\Domain\Copy;
@@ -27,6 +28,7 @@ abstract class LendingTestCase extends TestCase
     protected BorrowingService $borrowing;
     protected ReturningService $returning;
     protected ReservationService $reservations;
+    protected RenewalService $renewals;
 
     protected function setUp(): void
     {
@@ -37,6 +39,7 @@ abstract class LendingTestCase extends TestCase
         $this->borrowing = new BorrowingService($this->members, $this->titles);
         $this->returning = new ReturningService($this->members, $this->titles);
         $this->reservations = new ReservationService($this->titles, $this->reservationQuery);
+        $this->renewals = new RenewalService($this->members, $this->titles);
     }
 
     protected function clockAt(string $date): FixedClock

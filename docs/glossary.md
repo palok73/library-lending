@@ -15,7 +15,9 @@ Member is someone with a library card. Member has his loans, reservations, fines
 ### Loan
 Loan is a copy lent to a member until a due date.
 ### Reservation
-is a member's place in the queue for a title. Member can make reservation only if **Copy** of **Title** is available at that timeframe
+is a member's place in the queue for a title. A reservation is for a **Title**, not for a particular **Copy**.
+A member can make a reservation only when **no Copy** of the **Title** is available on the shelf (when a copy is available, he just borrows it).
+The queue belongs to the **Title**; reservations are served first come, first served.
 ### Fine
 is money a member owes for returning late. Fine is given to member for certain overdue Loan.
 
@@ -26,7 +28,7 @@ is money a member owes for returning late. Fine is given to member for certain o
 - A copy can only be lent to one person at a time.
 - A member who owes **more than €5 in fines** can't borrow anything until they pay.
 - A member whose card has **expired** can't borrow.
-- The standard loan is **28 days**. New releases (less than 6 months in our collection) are **14 days**.
+- The standard loan is **28 days**. New releases (less than 6 months in our collection) are **14 days**. This considers the **Title** (when it joined the collection), not a new copy of a title.
 
 ### 2. Returning
 *As a librarian, I want to record a returned copy, so that it's available again.*
@@ -58,4 +60,28 @@ is money a member owes for returning late. Fine is given to member for certain o
 
 ## Rules
 
+All numbers are in `LibraryPolicy`. Amounts are in cents in code.
 
+| Rule | Value |
+|---|---|
+| Max. active loans per member | 5 |
+| Max. outstanding fines to borrow | €5.00 (more than €5.00 blocks borrowing) |
+| Standard loan period | 28 days |
+| New release loan period | 14 days |
+| New release = title in collection | less than 6 months |
+| Fine per day late | €0.20 |
+| Max. fine per loan | €10.00 |
+| Renewals per loan | 2 (each for 28 days from the day of renewal) |
+| Max. reservations per member | 3 |
+| Hold of a returned copy for a reserver | 3 days |
+| Fine is written off after | 2 years |
+
+Other rules:
+- A copy is lent to one member at a time.
+- A member with an expired card can't borrow.
+- Returning a copy that is not on loan is an error.
+- A loan is overdue from the day after its due date.
+- Renewal is refused if the member has overdue loans, if the title is reserved, or if it is a new release.
+- Reservations are not possible while a copy of the title is on the shelf.
+
+See `docs/decisions.md` for interpretations, open questions and what is not built yet.
