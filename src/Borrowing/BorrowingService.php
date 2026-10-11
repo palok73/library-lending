@@ -12,7 +12,8 @@ class BorrowingService {
     
     public function __construct(
         private MemberRepository $memberRepository, 
-        private TitleRepository $titleRepository) {}
+        private TitleRepository $titleRepository,
+        private ClockInterface $clock) {}
 
     /**
      * Borrow a copy for a member.
@@ -20,8 +21,7 @@ class BorrowingService {
      */
     public function borrow(
         string $memberId,
-        string $titleId,
-        ClockInterface $clock): void 
+        string $titleId): void 
     {
          
         $member = $this->memberRepository->findById($memberId);
@@ -35,13 +35,13 @@ class BorrowingService {
         }
 
         // Domain logic
-        $member->checkCanBorrow($clock);
+        $member->checkCanBorrow($this->clock);
         $borrowedCopyId = $title->allocateCopyForBorrowing($member->getId());
-        $duePeriod = $title->duePeriod($clock);
+        $duePeriod = $title->duePeriod($this->clock);
         $member->borrowCopy(
             $borrowedCopyId, 
             $title->getId(), 
-            $clock,
+            $this->clock,
             $duePeriod
         );
         

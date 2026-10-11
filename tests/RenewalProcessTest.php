@@ -10,17 +10,20 @@ final class RenewalProcessTest extends LendingTestCase
 {
     private function borrow(string $memberId, string $titleId, string $on): void
     {
-        $this->borrowing->borrow($memberId, $titleId, $this->clockAt($on));
+        $this->travelTo($on);
+        $this->borrowing->borrow($memberId, $titleId);
     }
 
     private function renew(string $memberId, string $titleId, string $on): void
     {
-        $this->renewals->renewLoan($memberId, $titleId, $this->copyId($titleId), $this->clockAt($on));
+        $this->travelTo($on);
+        $this->renewals->renewLoan($memberId, $titleId, $this->copyId($titleId));
     }
 
     private function giveBack(string $memberId, string $titleId, string $on): void
     {
-        $this->returning->returnCopy($memberId, $titleId, $this->copyId($titleId), $this->clockAt($on));
+        $this->travelTo($on);
+        $this->returning->returnCopy($memberId, $titleId, $this->copyId($titleId));
     }
 
     /**
@@ -150,7 +153,8 @@ final class RenewalProcessTest extends LendingTestCase
         $this->givenMember('member-2');
         $this->givenTitle('title-1', 1);
         $this->borrow('member-1', 'title-1', '2026-10-01');
-        $this->reservations->reserve('title-1', 'member-2', $this->clockAt('2026-10-02'));
+        $this->travelTo('2026-10-02');
+        $this->reservations->reserve('title-1', 'member-2');
         $savedMembers = $this->members->saveCount;
 
         try {
@@ -205,6 +209,7 @@ final class RenewalProcessTest extends LendingTestCase
         $this->givenMember('member-1');
 
         $this->expectException(RenewalException::class);
-        $this->renewals->renewLoan('member-1', 'no-such-title', 'copy-x', $this->clockAt('2026-10-05'));
+        $this->travelTo('2026-10-05');
+        $this->renewals->renewLoan('member-1', 'no-such-title', 'copy-x');
     }
 }

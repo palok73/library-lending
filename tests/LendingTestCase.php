@@ -22,6 +22,7 @@ abstract class LendingTestCase extends TestCase
 {
     protected const TODAY = '2026-10-11';
 
+    protected TestClock $clock;
     protected InMemoryMemberRepository $members;
     protected InMemoryTitleRepository $titles;
     protected InMemoryReservationQuery $reservationQuery;
@@ -32,19 +33,23 @@ abstract class LendingTestCase extends TestCase
 
     protected function setUp(): void
     {
+        $this->clock = new TestClock(new DateTimeImmutable(self::TODAY));
         $this->members = new InMemoryMemberRepository();
         $this->titles = new InMemoryTitleRepository();
         $this->reservationQuery = new InMemoryReservationQuery();
 
-        $this->borrowing = new BorrowingService($this->members, $this->titles);
-        $this->returning = new ReturningService($this->members, $this->titles);
-        $this->reservations = new ReservationService($this->titles, $this->reservationQuery);
-        $this->renewals = new RenewalService($this->members, $this->titles);
+        $this->borrowing = new BorrowingService($this->members, $this->titles, $this->clock);
+        $this->returning = new ReturningService($this->members, $this->titles, $this->clock);
+        $this->reservations = new ReservationService($this->titles, $this->reservationQuery, $this->clock);
+        $this->renewals = new RenewalService($this->members, $this->titles, $this->clock);
     }
 
-    protected function clockAt(string $date): FixedClock
+    /**
+     * Moves the clock used by all services. Everything after this call happens on that date.
+     */
+    protected function travelTo(string $date): void
     {
-        return new FixedClock(new DateTimeImmutable($date));
+        $this->clock->travelTo($date);
     }
 
     protected function givenMember(string $id, string $cardExpiresOn = '2027-12-31'): Member
@@ -84,24 +89,19 @@ abstract class LendingTestCase extends TestCase
     }
 
     /**
-     * Every copy of the title is on loan, by "holder-0", "holder-1", ...
+     * Every copy of the title is on loan, by "holder-0", "holder-1", ... (on the current date of the clock).
      */
-    protected function givenAllCopiesAreLent(string $titleId, int $copyCount, string $on = self::TODAY): void
+    protected function givenAllCopiesAreLent(string $titleId, int $copyCount): void
     {
         for ($i = 0; $i < $copyCount; $i++) {
             $holder = 'holder-' . $i;
             $this->givenMember($holder);
-            $this->borrowing->borrow($holder, $titleId, $this->clockAt($on));
+            $this->borrowing->borrow($holder, $titleId);
         }
     }
 
-    protected function returnCopyNumber(string $titleId, int $copyNumber, string $on = self::TODAY): void
+    protected function returnCopyNumber(string $titleId, int $copyNumber): void
     {
-        $this->returning->returnCopy(
-            'holder-' . $copyNumber,
-            $titleId,
-            $this->copyId($titleId, $copyNumber),
-            $this->clockAt($on)
-        );
+        $this->returning->returnCopy('holder-' . $copyNumber, $titleId, $this->copyId($titleId, $copyNumber));
     }
 }

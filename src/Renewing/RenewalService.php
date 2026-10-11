@@ -11,9 +11,10 @@ use Psr\Clock\ClockInterface;
 class RenewalService {
     public function __construct(
         private MemberRepository $memberRepository, 
-        private TitleRepository $titleRepository) {}
+        private TitleRepository $titleRepository,
+        private ClockInterface $clock) {}
 
-    public function renewLoan(string $memberId,string $titleId,string $copyId,ClockInterface $clock): void {
+    public function renewLoan(string $memberId,string $titleId,string $copyId): void {
         $member = $this->memberRepository->findById($memberId);
         $title = $this->titleRepository->findById($titleId);
         
@@ -27,8 +28,8 @@ class RenewalService {
         $member->renewLoan(
             $copyId,
             $title->isReserved(),
-            $title->isNewRelease($clock),
-            $clock
+            $title->isNewRelease($this->clock),
+            $this->clock
         );
         
         $this->memberRepository->save($member);

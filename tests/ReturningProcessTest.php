@@ -14,11 +14,11 @@ final class ReturningProcessTest extends LendingTestCase
         $this->givenMember('member-1');
         $this->givenMember('member-2');
         $this->givenTitle('title-1', 1);
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
 
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $this->clockAt(self::TODAY));
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
 
-        $this->borrowing->borrow('member-2', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-2', 'title-1');
         $this->addToAssertionCount(1);
     }
 
@@ -30,12 +30,12 @@ final class ReturningProcessTest extends LendingTestCase
             $this->givenTitle('title-' . $i);
         }
         for ($i = 0; $i < $max; $i++) {
-            $this->borrowing->borrow('member-1', 'title-' . $i, $this->clockAt(self::TODAY));
+            $this->borrowing->borrow('member-1', 'title-' . $i);
         }
 
-        $this->returning->returnCopy('member-1', 'title-0', $this->copyId('title-0'), $this->clockAt(self::TODAY));
+        $this->returning->returnCopy('member-1', 'title-0', $this->copyId('title-0'));
 
-        $this->borrowing->borrow('member-1', 'title-' . $max, $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-' . $max);
         $this->addToAssertionCount(1);
     }
 
@@ -45,12 +45,14 @@ final class ReturningProcessTest extends LendingTestCase
         $member->fine(500); // right at the borrowing limit, any new fine would block the member
         $this->givenTitle('title-1');
         $this->givenTitle('title-2');
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt('2026-09-01'));
+        $this->travelTo('2026-09-01');
+        $this->borrowing->borrow('member-1', 'title-1');
 
         // standard loan: 28 days
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $this->clockAt('2026-09-29'));
+        $this->travelTo('2026-09-29');
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
 
-        $this->borrowing->borrow('member-1', 'title-2', $this->clockAt('2026-09-29'));
+        $this->borrowing->borrow('member-1', 'title-2');
         $this->addToAssertionCount(1);
     }
 
@@ -60,12 +62,14 @@ final class ReturningProcessTest extends LendingTestCase
         $member->fine(500);
         $this->givenTitle('title-1');
         $this->givenTitle('title-2');
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt('2026-09-01'));
+        $this->travelTo('2026-09-01');
+        $this->borrowing->borrow('member-1', 'title-1');
 
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $this->clockAt('2026-09-30'));
+        $this->travelTo('2026-09-30');
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
 
         $this->expectException(BorrowingException::class);
-        $this->borrowing->borrow('member-1', 'title-2', $this->clockAt('2026-09-30'));
+        $this->borrowing->borrow('member-1', 'title-2');
     }
 
     public function test_a_fine_of_exactly_five_euro_does_not_block_borrowing(): void
@@ -73,12 +77,14 @@ final class ReturningProcessTest extends LendingTestCase
         $this->givenMember('member-1');
         $this->givenTitle('title-1');
         $this->givenTitle('title-2');
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt('2026-09-01'));
+        $this->travelTo('2026-09-01');
+        $this->borrowing->borrow('member-1', 'title-1');
 
         // due 2026-09-29, returned 25 days late: 25 * 0.20 = 5.00
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $this->clockAt('2026-10-24'));
+        $this->travelTo('2026-10-24');
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
 
-        $this->borrowing->borrow('member-1', 'title-2', $this->clockAt('2026-10-24'));
+        $this->borrowing->borrow('member-1', 'title-2');
         $this->addToAssertionCount(1);
     }
 
@@ -87,13 +93,15 @@ final class ReturningProcessTest extends LendingTestCase
         $this->givenMember('member-1');
         $this->givenTitle('title-1');
         $this->givenTitle('title-2');
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt('2026-09-01'));
+        $this->travelTo('2026-09-01');
+        $this->borrowing->borrow('member-1', 'title-1');
 
         // 26 days late: 5.20
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $this->clockAt('2026-10-25'));
+        $this->travelTo('2026-10-25');
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
 
         $this->expectException(BorrowingException::class);
-        $this->borrowing->borrow('member-1', 'title-2', $this->clockAt('2026-10-25'));
+        $this->borrowing->borrow('member-1', 'title-2');
     }
 
     public function test_returning_a_copy_that_is_not_on_loan_is_an_error(): void
@@ -102,30 +110,29 @@ final class ReturningProcessTest extends LendingTestCase
         $this->givenTitle('title-1');
 
         $this->expectException(ReturningException::class);
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $this->clockAt(self::TODAY));
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
     }
 
     public function test_a_copy_cannot_be_returned_twice(): void
     {
         $this->givenMember('member-1');
         $this->givenTitle('title-1');
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
 
         $this->expectException(ReturningException::class);
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $this->clockAt(self::TODAY));
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
     }
 
     public function test_a_copy_that_was_borrowed_again_after_a_return_can_be_returned_again(): void
     {
         $this->givenMember('member-1');
         $this->givenTitle('title-1');
-        $clock = $this->clockAt(self::TODAY);
-        $this->borrowing->borrow('member-1', 'title-1', $clock);
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $clock);
-        $this->borrowing->borrow('member-1', 'title-1', $clock);
+        $this->borrowing->borrow('member-1', 'title-1');
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
+        $this->borrowing->borrow('member-1', 'title-1');
 
-        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'), $clock);
+        $this->returning->returnCopy('member-1', 'title-1', $this->copyId('title-1'));
         $this->addToAssertionCount(1);
     }
 
@@ -134,12 +141,12 @@ final class ReturningProcessTest extends LendingTestCase
         $this->givenMember('member-1');
         $this->givenTitle('title-1');
         $this->givenTitle('title-2');
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
         $savedMembers = $this->members->saveCount;
         $savedTitles = $this->titles->saveCount;
 
         try {
-            $this->returning->returnCopy('member-1', 'title-2', $this->copyId('title-1'), $this->clockAt(self::TODAY));
+            $this->returning->returnCopy('member-1', 'title-2', $this->copyId('title-1'));
             $this->fail('Returning to the wrong title must fail.');
         } catch (ReturningException) {
         }
@@ -153,6 +160,6 @@ final class ReturningProcessTest extends LendingTestCase
         $this->givenTitle('title-1');
 
         $this->expectException(ReturningException::class);
-        $this->returning->returnCopy('nobody', 'title-1', $this->copyId('title-1'), $this->clockAt(self::TODAY));
+        $this->returning->returnCopy('nobody', 'title-1', $this->copyId('title-1'));
     }
 }

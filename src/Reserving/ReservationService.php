@@ -12,10 +12,11 @@ use Psr\Clock\ClockInterface;
 class ReservationService {
     public function __construct(
         private readonly TitleRepository $titleRepository, 
-        private readonly ReservationQuery $reservationQuery
+        private readonly ReservationQuery $reservationQuery,
+        private ClockInterface $clock
     ) {}
 
-    public function reserve(string $titleId,string $memberId, ClockInterface $clock):void {
+    public function reserve(string $titleId,string $memberId):void {
         $title = $this->titleRepository->findById($titleId);
         if ($title === null) {
             throw new ReservationException("Title not found: {$titleId}");
@@ -24,7 +25,7 @@ class ReservationService {
         if ($countMemberReservations>=LibraryPolicy::MAX_RESERVATIONS_PER_MEMBER) {
             throw new ReservationException("Maximum number of reservations for member exceeded.");
         }
-        $title->makeReservationForMember($memberId,$clock);
+        $title->makeReservationForMember($memberId,$this->clock);
         $this->titleRepository->save($title);
     }
 }

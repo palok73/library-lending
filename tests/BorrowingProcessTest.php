@@ -13,7 +13,7 @@ final class BorrowingProcessTest extends LendingTestCase
         $this->givenMember('member-1');
         $this->givenTitle('title-1', 1);
 
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
 
         $this->assertSame(1, $this->members->saveCount);
         $this->assertSame(1, $this->titles->saveCount);
@@ -24,10 +24,10 @@ final class BorrowingProcessTest extends LendingTestCase
         $this->givenMember('member-1');
         $this->givenMember('member-2');
         $this->givenTitle('title-1', 1);
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
 
         $this->expectException(BorrowingException::class);
-        $this->borrowing->borrow('member-2', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-2', 'title-1');
     }
 
     public function test_two_copies_of_a_title_can_be_lent_to_two_members(): void
@@ -36,8 +36,8 @@ final class BorrowingProcessTest extends LendingTestCase
         $this->givenMember('member-2');
         $this->givenTitle('title-1', 2);
 
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
-        $this->borrowing->borrow('member-2', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
+        $this->borrowing->borrow('member-2', 'title-1');
 
         $this->assertSame(2, $this->members->saveCount);
     }
@@ -51,11 +51,11 @@ final class BorrowingProcessTest extends LendingTestCase
         }
 
         for ($i = 0; $i < $max; $i++) {
-            $this->borrowing->borrow('member-1', 'title-' . $i, $this->clockAt(self::TODAY));
+            $this->borrowing->borrow('member-1', 'title-' . $i);
         }
 
         $this->expectException(BorrowingException::class);
-        $this->borrowing->borrow('member-1', 'title-' . $max, $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-' . $max);
     }
 
     public function test_a_member_with_an_expired_library_card_cannot_borrow(): void
@@ -64,7 +64,7 @@ final class BorrowingProcessTest extends LendingTestCase
         $this->givenTitle('title-1');
 
         $this->expectException(BorrowingException::class);
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
     }
 
     public function test_a_refused_borrowing_leaves_the_copy_available_for_others(): void
@@ -74,12 +74,12 @@ final class BorrowingProcessTest extends LendingTestCase
         $this->givenTitle('title-1', 1);
 
         try {
-            $this->borrowing->borrow('expired', 'title-1', $this->clockAt(self::TODAY));
+            $this->borrowing->borrow('expired', 'title-1');
             $this->fail('Expired card should not be able to borrow.');
         } catch (BorrowingException) {
         }
 
-        $this->borrowing->borrow('member-2', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-2', 'title-1');
         $this->assertSame(1, $this->titles->saveCount);
     }
 
@@ -90,7 +90,7 @@ final class BorrowingProcessTest extends LendingTestCase
         $this->givenTitle('title-1');
 
         $this->expectException(BorrowingException::class);
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
     }
 
     public function test_a_member_who_owes_exactly_five_euro_can_still_borrow(): void
@@ -99,7 +99,7 @@ final class BorrowingProcessTest extends LendingTestCase
         $member->fine(500);
         $this->givenTitle('title-1');
 
-        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'title-1');
 
         $this->assertSame(1, $this->members->saveCount);
     }
@@ -109,7 +109,7 @@ final class BorrowingProcessTest extends LendingTestCase
         $this->givenTitle('title-1');
 
         $this->expectException(BorrowingException::class);
-        $this->borrowing->borrow('nobody', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('nobody', 'title-1');
     }
 
     public function test_borrowing_an_unknown_title_fails(): void
@@ -117,6 +117,6 @@ final class BorrowingProcessTest extends LendingTestCase
         $this->givenMember('member-1');
 
         $this->expectException(BorrowingException::class);
-        $this->borrowing->borrow('member-1', 'no-such-title', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-1', 'no-such-title');
     }
 }

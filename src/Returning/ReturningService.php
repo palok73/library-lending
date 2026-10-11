@@ -11,9 +11,10 @@ use Psr\Clock\ClockInterface;
 class ReturningService {
     public function __construct(
         private MemberRepository $memberRepository, 
-        private TitleRepository $titleRepository) {}
+        private TitleRepository $titleRepository,
+        private ClockInterface $clock) {}
 
-    public function returnCopy(string $memberId,string $titleId,string $copyId,ClockInterface $clock): void {
+    public function returnCopy(string $memberId,string $titleId,string $copyId): void {
         $member = $this->memberRepository->findById($memberId);
         $title = $this->titleRepository->findById($titleId);
         
@@ -24,7 +25,7 @@ class ReturningService {
             throw new ReturningException("Title not found: {$titleId}");
         }
 
-        $member->returnCopy($copyId, $clock);
+        $member->returnCopy($copyId, $this->clock);
         $title->returnCopy($copyId);
         
         // Save both aggregates (within same transaction)
