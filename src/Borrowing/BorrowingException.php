@@ -1,0 +1,10 @@
+<?php
+declare(strict_types=1);
+
+namespace LibraryLanding\Borrowing;
+
+class BorrowingException extends \RuntimeException {
+    public function __construct(string $message) {
+        parent::__construct($message);
+    }
+}
