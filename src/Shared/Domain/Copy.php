@@ -3,16 +3,17 @@ declare(strict_types=1);
 
 namespace LibraryLanding\Shared\Domain;
 
-use LibraryLanding\Borrowing\BorrowingException;
 
 // every copy has its loan and reservation
 class Copy extends Entity {
     
     
     public function __construct(
-        private string $id,
+        string $id,
         private string $titleId,
-        private bool $available=true) {
+        private bool $available=true) 
+    {
+        parent::__construct($id);
     }
 
     

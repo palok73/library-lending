@@ -6,18 +6,18 @@ namespace LibraryLanding\Shared\Domain;
 
 use Psr\Clock\ClockInterface;
 
-class Fine {
+class Fine extends Entity {
     private readonly int $amount;
     private bool $writtenOff=false;
     
     public function __construct(
+        string $id,
         private readonly string $loanId,
         private readonly string $memberId,
         private readonly \DateTimeImmutable $dateFined,
         int $daysInOverdue,
-
-        
     ) {
+        parent::__construct($id);
         $this->amount = self::computeFine($daysInOverdue);
     }
 

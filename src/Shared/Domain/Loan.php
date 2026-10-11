@@ -7,17 +7,19 @@ use Psr\Clock\ClockInterface;
 
 class Loan extends Entity
 {
-    public ?\DateTimeImmutable $returnedDate;
-    public int $renewCount=0;
+    private ?\DateTimeImmutable $returnedDate;
+    private int $renewCount=0;
 
     public function __construct(
+        string $id,
         private string $memberId,
         private string $titleId,
         private string $copyId,
-        public \DateTimeImmutable $borrowedDate,
-        public int $duePeriod,
+        private \DateTimeImmutable $borrowedDate,
+        private int $duePeriod,
         ?\DateTimeInterface $returnedDate = null,
     ) {
+        parent::__construct($id);
         $this->borrowedDate = \DateTimeImmutable::createFromInterface($borrowedDate);
         $this->returnedDate = $returnedDate ? \DateTimeImmutable::createFromInterface($returnedDate) : null;
     }
@@ -34,6 +36,18 @@ class Loan extends Entity
         return $this->copyId;
     }
 
+    public function getRenewCount():int {
+        return $this->renewCount;
+    }
+
+    public function getBorrowedDate():\DateTimeImmutable {
+        return $this->borrowedDate;
+    }
+
+    public function getReturnedDate():?\DateTimeImmutable {
+        return $this->returnedDate;
+    }
+
     public function isOverdue(ClockInterface $clock): bool
     {
         return ($this->daysInOverdue($clock)>0);
@@ -48,6 +62,9 @@ class Loan extends Entity
     }
 
     public function return(ClockInterface $clock) {
+        if($this->returnedDate!=null) {
+            throw new ReturningException("Loan already returned on: ".$this->returnedDate->format('d.m.Y'));
+        }
         $this->returnedDate = $clock->now();
     }
    
@@ -64,11 +81,9 @@ class Loan extends Entity
 
     public function daysInOverdue(ClockInterface $clock): int {
         $dueDate = $this->borrowedDate->modify("+{$this->duePeriod} days");
-        $diff = ($this->returnedDate !== null) ? 
-            $this->returnedDate->diff($dueDate) 
-            : $clock->now()->diff($dueDate);
-        
-        if ($diff->days < 0)
+        $borrowedUntil = ($this->returnedDate !== null) ? $this->returnedDate : $clock->now();
+        $diff = $dueDate->diff($borrowedUntil);
+        if ( $dueDate > $borrowedUntil)
             return 0;
         return $diff->days;
     }

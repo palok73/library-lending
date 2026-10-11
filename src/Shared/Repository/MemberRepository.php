@@ -10,13 +10,7 @@ interface MemberRepository {
      * Load a Member without lock (read-only access).
      */
     public function findById(string $memberId): ?Member;
-    
-    /**
-     * Load a Member with pessimistic lock for update.
-     * Requires active transaction.
-     * Throws PessimisticLockException if lock cannot be acquired.
-     */
-    public function findByIdForUpdate(string $memberId): ?Member;
+      
     
     /**
      * Save a Member within current transaction.

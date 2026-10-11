@@ -1,164 +1,122 @@
 <?php
-
 declare(strict_types=1);
 
 namespace LibraryLanding\Tests;
 
-use DateTimeImmutable;
-use LibraryLanding\Borrowing\BorrowingException;
-use LibraryLanding\Borrowing\BorrowingService;
-use LibraryLanding\Shared\Domain\Copy;
-use LibraryLanding\Shared\Domain\LibraryCard;
+use LibraryLanding\Shared\Domain\BorrowingException;
 use LibraryLanding\Shared\Domain\LibraryPolicy;
-use LibraryLanding\Shared\Domain\Member;
-use LibraryLanding\Shared\Domain\Title;
-use LibraryLanding\Shared\Repository\MemberRepository;
-use LibraryLanding\Shared\Repository\TitleRepository;
-use PHPUnit\Framework\TestCase;
-use Psr\Clock\ClockInterface;
 
-final class BorrowingProcessTest extends TestCase
+final class BorrowingProcessTest extends LendingTestCase
 {
-    public function test_a_member_can_borrow_an_available_copy_when_all_rules_allow_it(): void
+    public function test_a_member_can_borrow_an_available_copy(): void
     {
-        $clock = new FixedClock(new DateTimeImmutable('2026-10-11'));
-        $member = $this->createMember('member-1', new DateTimeImmutable('2027-10-11'));
-        $title = $this->createTitle('title-1', 1);
+        $this->givenMember('member-1');
+        $this->givenTitle('title-1', 1);
 
-        $memberRepository = $this->createMock(MemberRepository::class);
-        $memberRepository->method('findById')->with('member-1')->willReturn($member);
-        $memberRepository->expects($this->once())->method('save')->with($member);
+        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
 
-        $titleRepository = $this->createMock(TitleRepository::class);
-        $titleRepository->method('findById')->with('title-1')->willReturn($title);
-        $titleRepository->expects($this->once())->method('save')->with($title);
-
-        $service = new BorrowingService($memberRepository, $titleRepository);
-
-        $service->borrow('member-1', 'title-1', $clock);
-
-        $this->assertSame([], $member->whyCantBorrow($clock));
-        $this->assertSame(0, $title->availableCopiesForBorrowing());
+        $this->assertSame(1, $this->members->saveCount);
+        $this->assertSame(1, $this->titles->saveCount);
     }
 
-    public function test_a_member_with_five_active_loans_cannot_borrow_a_sixth(): void
+    public function test_a_copy_cannot_be_lent_to_two_members_at_the_same_time(): void
     {
-        $clock = new FixedClock(new DateTimeImmutable('2026-10-11'));
-        $member = $this->createMember('member-1', new DateTimeImmutable('2027-10-11'));
-
-        for ($i = 0; $i < LibraryPolicy::MAX_LOAN_PER_MEMBER; $i++) {
-            $title = $this->createTitle('title-' . $i, 1);
-            $copy = $title->getFirstAvailableCopy();
-            $this->assertNotNull($copy);
-            $member->borrowCopy($copy, $title, $clock);
-        }
-
-        $this->assertFalse($member->canBorrow($clock));
-
-        $memberRepository = $this->createMock(MemberRepository::class);
-        $memberRepository->method('findById')->with('member-1')->willReturn($member);
-
-        $titleRepository = $this->createMock(TitleRepository::class);
-        $titleRepository->method('findById')->with('title-5')->willReturn($this->createTitle('title-5', 1));
-
-        $service = new BorrowingService($memberRepository, $titleRepository);
+        $this->givenMember('member-1');
+        $this->givenMember('member-2');
+        $this->givenTitle('title-1', 1);
+        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
 
         $this->expectException(BorrowingException::class);
-        $service->borrow('member-1', 'title-5', $clock);
+        $this->borrowing->borrow('member-2', 'title-1', $this->clockAt(self::TODAY));
+    }
+
+    public function test_two_copies_of_a_title_can_be_lent_to_two_members(): void
+    {
+        $this->givenMember('member-1');
+        $this->givenMember('member-2');
+        $this->givenTitle('title-1', 2);
+
+        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+        $this->borrowing->borrow('member-2', 'title-1', $this->clockAt(self::TODAY));
+
+        $this->assertSame(2, $this->members->saveCount);
+    }
+
+    public function test_a_member_can_have_five_loans_but_not_a_sixth(): void
+    {
+        $this->givenMember('member-1');
+        $max = LibraryPolicy::MAX_LOAN_PER_MEMBER;
+        for ($i = 0; $i <= $max; $i++) {
+            $this->givenTitle('title-' . $i);
+        }
+
+        for ($i = 0; $i < $max; $i++) {
+            $this->borrowing->borrow('member-1', 'title-' . $i, $this->clockAt(self::TODAY));
+        }
+
+        $this->expectException(BorrowingException::class);
+        $this->borrowing->borrow('member-1', 'title-' . $max, $this->clockAt(self::TODAY));
     }
 
     public function test_a_member_with_an_expired_library_card_cannot_borrow(): void
     {
-        $clock = new FixedClock(new DateTimeImmutable('2026-10-11'));
-        $member = $this->createMember('member-2', new DateTimeImmutable('2026-10-10'));
-        $title = $this->createTitle('title-2', 1);
-
-        $memberRepository = $this->createMock(MemberRepository::class);
-        $memberRepository->method('findById')->with('member-2')->willReturn($member);
-
-        $titleRepository = $this->createMock(TitleRepository::class);
-        $titleRepository->method('findById')->with('title-2')->willReturn($title);
-
-        $service = new BorrowingService($memberRepository, $titleRepository);
-
-        $this->assertFalse($member->canBorrow($clock));
-        $this->expectException(BorrowingException::class);
-        $service->borrow('member-2', 'title-2', $clock);
-    }
-
-    public function test_a_member_with_too_much_debt_cannot_borrow(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2026-10-11'));
-        $member = $this->createMember('member-3', new DateTimeImmutable('2027-10-11'));
-        $member->fine(LibraryPolicy::MAX_NEGATIVE_BALANCE_IN_CENTS + 1);
-        $title = $this->createTitle('title-3', 1);
-
-        $memberRepository = $this->createMock(MemberRepository::class);
-        $memberRepository->method('findById')->with('member-3')->willReturn($member);
-
-        $titleRepository = $this->createMock(TitleRepository::class);
-        $titleRepository->method('findById')->with('title-3')->willReturn($title);
-
-        $service = new BorrowingService($memberRepository, $titleRepository);
-
-        $this->assertFalse($member->canBorrow($clock));
-        $this->expectException(BorrowingException::class);
-        $service->borrow('member-3', 'title-3', $clock);
-    }
-
-    public function test_a_copy_cannot_be_lent_twice(): void
-    {
-        $copy = new Copy('copy-1', 'title-4');
-
-        $copy->markAsBorrowed();
+        $this->givenMember('member-1', '2026-10-10');
+        $this->givenTitle('title-1');
 
         $this->expectException(BorrowingException::class);
-        $copy->markAsBorrowed();
+        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
     }
 
-    private function createMember(string $memberId, DateTimeImmutable $expiryDate): Member
+    public function test_a_refused_borrowing_leaves_the_copy_available_for_others(): void
     {
-        $member = new Member(
-            'Member ' . $memberId,
-            $memberId . '@example.com',
-            new LibraryCard('CARD-' . $memberId, $memberId, $expiryDate)
-        );
-        $member->setId($memberId);
+        $this->givenMember('expired', '2026-10-10');
+        $this->givenMember('member-2');
+        $this->givenTitle('title-1', 1);
 
-        return $member;
-    }
-
-    private function createTitle(string $titleId, int $copyCount): Title
-    {
-        $copies = [];
-        for ($i = 0; $i < $copyCount; $i++) {
-            $copy = new Copy($titleId . '-copy-' . $i, $titleId, true);
-            $copy->setId($titleId . '-copy-' . $i);
-            $copies[] = $copy;
+        try {
+            $this->borrowing->borrow('expired', 'title-1', $this->clockAt(self::TODAY));
+            $this->fail('Expired card should not be able to borrow.');
+        } catch (BorrowingException) {
         }
 
-        $title = new Title(
-            '978-' . $titleId,
-            'Title ' . $titleId,
-            'Author',
-            new DateTimeImmutable('-1 month'),
-            $copies,
-            []
-        );
-        $title->setId($titleId);
-
-        return $title;
-    }
-}
-
-final class FixedClock implements ClockInterface
-{
-    public function __construct(private DateTimeImmutable $now)
-    {
+        $this->borrowing->borrow('member-2', 'title-1', $this->clockAt(self::TODAY));
+        $this->assertSame(1, $this->titles->saveCount);
     }
 
-    public function now(): DateTimeImmutable
+    public function test_a_member_who_owes_more_than_five_euro_cannot_borrow(): void
     {
-        return $this->now;
+        $member = $this->givenMember('member-1');
+        $member->fine(501);
+        $this->givenTitle('title-1');
+
+        $this->expectException(BorrowingException::class);
+        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+    }
+
+    public function test_a_member_who_owes_exactly_five_euro_can_still_borrow(): void
+    {
+        $member = $this->givenMember('member-1');
+        $member->fine(500);
+        $this->givenTitle('title-1');
+
+        $this->borrowing->borrow('member-1', 'title-1', $this->clockAt(self::TODAY));
+
+        $this->assertSame(1, $this->members->saveCount);
+    }
+
+    public function test_borrowing_for_an_unknown_member_fails(): void
+    {
+        $this->givenTitle('title-1');
+
+        $this->expectException(BorrowingException::class);
+        $this->borrowing->borrow('nobody', 'title-1', $this->clockAt(self::TODAY));
+    }
+
+    public function test_borrowing_an_unknown_title_fails(): void
+    {
+        $this->givenMember('member-1');
+
+        $this->expectException(BorrowingException::class);
+        $this->borrowing->borrow('member-1', 'no-such-title', $this->clockAt(self::TODAY));
     }
 }

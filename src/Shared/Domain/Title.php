@@ -3,40 +3,57 @@ declare(strict_types=1);
 
 namespace LibraryLanding\Shared\Domain;
 
-use LibraryLanding\Borrowing\BorrowingException;
 use Psr\Clock\ClockInterface;
 
 class Title extends Entity
 {
-    private string $isbn;
-    private string $title;
-    private string $author;
-    private \DateTimeImmutable $addedDate;
+    private readonly string $title;
+    private readonly string $author;
+    private readonly \DateTimeImmutable $addedDate;
 
     private array $copies;
 
     private array $reservations;
 
     public function __construct(
-        string $isbn, string $title, string $author, 
-        \DateTimeInterface $addedDate, array $copies, array $reservations) {
-        //apply some validation here if needed
-        $this->isbn = $isbn;
+        string $id,
+        string $title, 
+        string $author, 
+        \DateTimeInterface $addedDate, 
+        array $copies, 
+        array $reservations
+    ) {
+        parent::__construct($id);
         $this->title = trim($title);
         $this->author = trim($author);
         $this->addedDate = \DateTimeImmutable::createFromInterface($addedDate);
-        $this->copies = $copies;
-        $this->reservations = empty($reservations) ? [] : $reservations;
-        usort($reservations, fn($a, $b) => $a->reservedDate > $b->reservedDate);
+        $this->copies = \is_array($copies) ? $copies: [];
+        $this->reservations = \is_array($reservations) ? $reservations : [];
+        usort($this->reservations, fn($a, $b) => $a->getReservedDate() <=> $b->getReservedDate());
     }   
-     public function getTitle():string {
+    public function getTitle():string {
         return $this->title;
     }
 
+    public function getAuthor():string {
+        return $this->author;
+    }
+
+    public function getAddedDate(): \DateTimeImmutable {
+        return $this->addedDate;
+    }
+
+    public function getCopy(string $id):?Copy {
+        foreach($this->copies as $copy) {
+            if ($copy->getId() === $id)
+                return $copy;
+        }
+        return null;
+    }
 
     // Borrowing
 
-    public function allocateCopyForBorrowing(string $memberId,ClockInterface $clock): Copy
+    public function allocateCopyForBorrowing(string $memberId): string
     {
         $numberOfAvailableCopies = $this->availableCopiesForBorrowing();
         
@@ -44,25 +61,26 @@ class Title extends Entity
             throw new BorrowingException("No available copy to borrow.");
         }
         
-        if($this->isReserved()) {
-            if ($this->hasReservationForMember($memberId)) {
-                $positionInReservationQueue = $this->reservationQueuePosition($memberId);
-                if ($numberOfAvailableCopies<($positionInReservationQueue+1)) {
-                    throw new BorrowingException("Cant borrow, not enough available copies.");
-                }
-            }
-            else {
-                throw new BorrowingException("Cant borrow, title is reserved by other member/s.");
+        $totalReservationCount = \count($this->reservations);
+        
+        if ($this->hasReservationForMember($memberId)) {
+            $positionInReservationQueue = $this->reservationQueuePosition($memberId);
+            if ($numberOfAvailableCopies<($positionInReservationQueue+1)) {
+                throw new BorrowingException("Cant borrow, because of other reservations.");
             }
         }
+        else if ($totalReservationCount >= $numberOfAvailableCopies) {
+            throw new BorrowingException("Cant borrow, all copies are reserved by other members.");
+        }
+       
         $copyToBorrow = $this->getFirstAvailableCopy();
         $copyToBorrow->markAsBorrowed();
         $this->clearReservationForMember($memberId);
-        return $copyToBorrow;
+        return $copyToBorrow->getId();
     }
 
 
-    public function availableCopiesForBorrowing():int {
+    protected function availableCopiesForBorrowing():int {
         $countvailableCopies = 0;
         foreach($this->copies as $copy) {
             /* @var $copy Copy */
@@ -73,7 +91,7 @@ class Title extends Entity
         return $countvailableCopies;
     }
 
-    public function getFirstAvailableCopy():?Copy {
+    protected function getFirstAvailableCopy():?Copy {
         foreach($this->copies as $copy) {
             /* @var $copy Copy */
             if($copy->isAvailable()) {
@@ -97,11 +115,14 @@ class Title extends Entity
     public function returnCopy(string $copyId):void {
         foreach($this->copies as $copy) {
             if ($copy->getId() === $copyId) {
+                if($copy->isAvailable()) {
+                    throw new ReturningException("Copy: $copyId was not marked as borrowed, can't return.");
+                }
                 $copy->markAsAvailable();
                 return;
             }
         }
-        throw new ReturningException("Copy: $copyId was not marked as borrowed, can't return");
+        throw new ReturningException("Copy: $copyId was not found int this Title.");
     }
 
     // Reservations
@@ -114,49 +135,47 @@ class Title extends Entity
         if ($this->hasReservationForMember($memberId)) {
             throw new ReservationException("Member already has reservation for this title");
         }
+        if($this->availableCopiesForBorrowing()) {
+            throw new ReservationException("Cant reserve when copies are available");
+        }
         $reservation = new Reservation(
-            uniqid(),
+            Uuid::generate(),
             $memberId,
             $this->getId(),
             $clock->now()
         );
-        $this->addReservation($reservation);
+        $this->reservations[] = $reservation;
         return $reservation;
     }
 
-    public function addReservation(Reservation $reservation) {
-        $this->reservations[] = $reservation;
-    }
-
-
-    public function hasReservationForMember($memberId):bool {
+    
+    protected function hasReservationForMember($memberId):bool {
         foreach($this->reservations as $reservation) {
             /* @var $reservation Reservation */
-            if ($reservation->memberId===$memberId)
+            if ($reservation->getMemberId() === $memberId)
                 return true;
         }
         return false;
     }
 
-    public function clearReservationForMember($memberId):bool {
-        $index=0;
+    protected function clearReservationForMember($memberId):bool {
         $removed = false;
-        foreach($this->reservations as $reservation) {
+        foreach($this->reservations as $key=> $reservation) {
             /* @var $reservation Reservation */
-            if ($reservation->memberId===$memberId) {
-                unset($this->reservations[$index]);
+            if ($reservation->getMemberId() === $memberId) {
+                unset($this->reservations[$key]);
                 $removed=true;
             }
-            $index++;
         }
+        $this->reservations = array_values($this->reservations);
         return $removed;
     }
 
-    public function reservationQueuePosition(string $memberId): ?int {
+    protected function reservationQueuePosition(string $memberId): ?int {
         $index=0;
         foreach($this->reservations as $reservation) {
             /* @var $reservation Reservation */
-            if ($reservation->memberId===$memberId) {
+            if ($reservation->getMemberId() === $memberId) {
                 return $index;
             }
             $index++;

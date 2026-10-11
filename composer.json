@@ -6,6 +6,11 @@
       "LibraryLanding\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+        "LibraryLanding\\Tests\\": "tests/"
+    }
+  },
   "authors": [
     {
       "name": "Pavel Kolarov",

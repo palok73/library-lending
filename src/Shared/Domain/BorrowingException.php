@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace LibraryLanding\Borrowing;
+namespace LibraryLanding\Shared\Domain;
 
 class BorrowingException extends \RuntimeException {
     public function __construct(string $message) {

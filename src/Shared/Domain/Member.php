@@ -9,54 +9,47 @@ class Member extends Entity {
     
        
     public function __construct(
+        string $id,
         private string $name, 
         private string $email,
         private LibraryCard $libraryCard,
         private array $loans = [],
-        private array $reservations = [],
         private array $fines = [],
-        private int $amountOwnedInCents=0) {}
+        private int $amountOwnedInCents=0) 
+    {
+        parent::__construct($id);
+    }
    
 
     // Borrowing
 
-    public function canBorrow(ClockInterface $clock): bool {
-        return (
-            $this->countActiveLoans() < LibraryPolicy::MAX_LOAN_PER_MEMBER
-            && !$this->libraryCard->isExpired($clock)
-            && $this->amountOwnedInCents <= LibraryPolicy::MAX_NEGATIVE_BALANCE_IN_CENTS
-        );
-    }
-
-    public function whyCantBorrow(ClockInterface $clock):array {
-        $reasons = [];
+    public function checkCanBorrow(ClockInterface $clock): void {
         if($this->countActiveLoans()>= LibraryPolicy::MAX_LOAN_PER_MEMBER) 
-            $reasons[] = "Max. number of loans per member achieved,
-                cant borrow next book, until member returns at least one book.";
+            throw new BorrowingException("Max. number of loans per member achieved,
+                cant borrow next book, until member returns at least one book.");
             
         if ($this->libraryCard->isExpired($clock))
-            $reasons[] = "Member's card has expired, cant make new loan!";
+            throw new BorrowingException("Member's card has expired, can't make a new loan!");
             
         if ($this->amountOwnedInCents > LibraryPolicy::MAX_NEGATIVE_BALANCE_IN_CENTS)
-            $reasons[] ="Member has outstanding negative balance lower then {LibraryPolicy::MAX_NEGATIVE_BALANCE_IN_CENTS} Cents.
-                Until he pay his debts.";
+            throw new BorrowingException("Member has outstanding negative balance lower then ".LibraryPolicy::MAX_NEGATIVE_BALANCE_IN_CENTS." Cents.
+                Until he pay his debts, he can't make new loan.");
             
-        return $reasons;
     }
-
-    public function borrowCopy(Copy $copy, Title $title, ClockInterface $clock): Loan {
-        $this->clearMembersReservationForTitle($title);
-        $loan = $this->createLoan($title,$copy,$clock);
+   
+    public function borrowCopy(string $copyId, string $titleId,ClockInterface $clock,int $duePeriod): Loan {
+        $this->checkCanBorrow($clock);
+        $loan = $this->createLoan($titleId,$copyId,$clock,$duePeriod);
         $this->loans[] = $loan;
         return $loan;
     }
 
     // Loans 
 
-     public function renewLoan(Title $title,string $copyId, ClockInterface $clock):void {
-        if ($title->isReserved())
-            throw new RenewalException("Title: {$title->getTitle()} is reserved, can't renew;");
-        $loan = $this->findLoanForCopyId($copyId);
+     public function renewLoan(string $titleId,bool $titleReserved,string $copyId, ClockInterface $clock):void {
+        if ($titleReserved)
+            throw new RenewalException("Title: $titleId is reserved, can't renew;");
+        $loan = $this->findActiveLoanForCopyId($copyId);
         $loan->renew($clock);
     }
 
@@ -70,81 +63,39 @@ class Member extends Entity {
         return $countLoans;
     }
 
-    public function createLoan(Title $title,Copy $copyToBorrow,ClockInterface $clock): Loan {
+    protected function createLoan(string $titleId,string $copyId,ClockInterface $clock,int $duePeriod): Loan {
         $loan = new Loan(
+            Uuid::generate(),
             $this->getId(),
-            $title->getId(),
-            $copyToBorrow->getId(),
+            $titleId,
+            $copyId,
             $clock->now(),
-            $title->duePeriod($clock)
+            $duePeriod,
         );
         return $loan;
     }
 
-    protected function findLoanForCopyId(string $copyId):?Loan {
+    protected function findActiveLoanForCopyId(string $copyId):?Loan {
         foreach($this->loans as $loan) {
             /* @var $loan Loan */
-            if ($copyId===$loan->getCopyId())
+            if ($copyId === $loan->getCopyId() && $loan->isActive())
                 return $loan;
         }
         return null;
     }
 
-    protected function removeLoanByCopyId(string $copyId):bool {
-        $index=0;
-        foreach($this->loans as $loan) {
-            /* @var $loan Loan */
-            if ($copyId===$loan->getCopyId()) {
-                unset($this->loans[$index]);
-                return true;
-            }
-            $index++;
-        }
-        return false;
-    }
-
     // Returning
 
-    public function returnCopy(Copy $copy,ClockInterface $clock): void {
-        $loan = $this->findLoanForCopyId($copy->getId());
+    public function returnCopy(string $copyId,ClockInterface $clock): void {
+        $loan = $this->findActiveLoanForCopyId($copyId);
         if ($loan===null)
-                throw new ReturningException("No loan for this copyId: {$copy->getId()} found.");
+                throw new ReturningException("No loan for this copyId: {$copyId} found.");
         if ($loan->isOverdue($clock)) {
             $fine = $this->createFineForLoan($loan,$clock);
             $this->fines[] = $fine;
             $this->fine($fine->getAmount());
         }
-        $copy->markAsAvailable();
         $loan->return($clock);
-    }
-
-    // Reservations
-
-    public function reserveTitle(Title $title, ClockInterface $clock) {
-        $this->checkCanReserve($title);
-        $reservation = $title->makeReservationForMember($this->getId(),$clock);
-        $this->reservations[] = $reservation;
-    }
-    
-    public function checkCanReserve(Title $title) {
-        if($title->availableCopiesForBorrowing()) {
-            throw new ReservationException("Cant reserve when copies are available");
-        }
-        if(\count($this->reservations)> LibraryPolicy::MAX_RESERVATIONS_PER_MEMBER) {
-            throw new ReservationException("Cant make new reservation, limit for reservations per member exceeded.");
-        }
-
-    }
-
-    public function clearMembersReservationForTitle(Title $title):void {
-        $index=0;
-        foreach($this->reservations as $reservation) {
-            /* @var $reservation Reservation */
-            if ($reservation->titleId===$title->getId()) {
-                unset($this->reservations[$index]);
-            }
-            $index++;
-        }
     }
 
     // Fines & Payments
@@ -152,7 +103,13 @@ class Member extends Entity {
     protected function createFineForLoan(Loan $loan,ClockInterface $clock): Fine {
         if(!$loan->isOverdue($clock)) 
             throw new FineException("Loan is not in overdue.");
-        $fine = new Fine($loan->getId(),$this->getId(),$clock->now(),$loan->daysInOverdue($clock));
+        $fine = new Fine(
+            Uuid::generate(),
+            $loan->getId(),
+            $this->getId(),
+            $clock->now(),
+            $loan->daysInOverdue($clock)
+        );
         return $fine;
     }
 

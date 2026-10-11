@@ -3,20 +3,29 @@ declare(strict_types=1);
 
 namespace LibraryLanding\Shared\Domain;
 
-class Reservation
+class Reservation extends Entity
 {
-    public \DateTimeImmutable $reservedDate;
+    private readonly \DateTimeImmutable $reservedDate;
 
     public function __construct(
-        public string $id,
-        public string $memberId,
-        public string $titleId,
+        string $id,
+        private readonly string $memberId,
+        private readonly string $titleId,
         \DateTimeImmutable $reservedDate,
     ) {
-        $this->id = $id;
-        $this->memberId = $memberId;
-        $this->titleId = $titleId;
+        parent::__construct($id);
         $this->reservedDate = \DateTimeImmutable::createFromInterface($reservedDate);
     }
 
+    public function getMemberId():string {
+        return $this->memberId;
+    }
+
+    public function getTitleId():string {
+        return $this->titleId;
+    }
+
+    public function getReservedDate():\DateTimeImmutable {
+        return $this->reservedDate;
+    }
 }

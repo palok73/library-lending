@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace LibraryLanding\Borrowing;
 
+use LibraryLanding\Shared\Domain\BorrowingException;
 use LibraryLanding\Shared\Repository\MemberRepository;
 use LibraryLanding\Shared\Repository\TitleRepository;
 use Psr\Clock\ClockInterface;
@@ -33,14 +34,16 @@ class BorrowingService {
             throw new BorrowingException("Title not found: {$titleId}");
         }
 
-        if (!$member->canBorrow($clock)) {
-            $reasons = $member->whyCantBorrow($clock);
-            throw new BorrowingException($reasons[0] ?? 'Member cannot borrow at this time.');
-        }
-
         // Domain logic
-        $borrowedCopy = $title->allocateCopyForBorrowing($member->getId(), $clock);
-        $member->borrowCopy($borrowedCopy, $title, $clock);
+        $member->checkCanBorrow($clock);
+        $borrowedCopyId = $title->allocateCopyForBorrowing($member->getId());
+        $duePeriod = $title->duePeriod($clock);
+        $member->borrowCopy(
+            $borrowedCopyId, 
+            $title->getId(), 
+            $clock,
+            $duePeriod
+        );
         
         // Save both aggregates (within same transaction)
         $this->memberRepository->save($member);
