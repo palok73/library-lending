@@ -18,7 +18,8 @@
     }
   ],
   "require-dev": {
-    "phpunit/phpunit": "^13.4"
+    "phpunit/phpunit": "^13.4",
+    "phpstan/phpstan": "^2.3"
   },
   "require": {
     "psr/clock": "^1.0"

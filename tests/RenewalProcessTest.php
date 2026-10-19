@@ -32,7 +32,7 @@ final class RenewalProcessTest extends LendingTestCase
      */
     private function givenMemberAtTheFineLimit(string $id): void
     {
-        $this->givenMember($id)->fine(500);
+        $this->givenMemberOwing($id, 500);
     }
 
     public function test_a_member_can_renew_a_loan(): void

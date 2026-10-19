@@ -9,9 +9,11 @@ use LibraryLanding\Renewing\RenewalService;
 use LibraryLanding\Reserving\ReservationService;
 use LibraryLanding\Returning\ReturningService;
 use LibraryLanding\Shared\Domain\Copy;
+use LibraryLanding\Shared\Domain\Fine;
 use LibraryLanding\Shared\Domain\LibraryCard;
 use LibraryLanding\Shared\Domain\Member;
 use LibraryLanding\Shared\Domain\Title;
+use LibraryLanding\Shared\Domain\Uuid;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -59,6 +61,26 @@ abstract class LendingTestCase extends TestCase
             'Member ' . $id,
             $id . '@example.com',
             new LibraryCard('CARD-' . $id, $id, new DateTimeImmutable($cardExpiresOn))
+        );
+        $this->members->save($member);
+        $this->members->saveCount = 0;
+
+        return $member;
+    }
+
+    /**
+     * Member with one unpaid, recent fine of the given amount.
+     */
+    protected function givenMemberOwing(string $id, int $cents, string $cardExpiresOn = '2027-12-31'): Member
+    {
+        $fine = new Fine(Uuid::generate(), 'old-loan-' . $id, $id, new DateTimeImmutable(self::TODAY), $cents);
+        $member = new Member(
+            $id,
+            'Member ' . $id,
+            $id . '@example.com',
+            new LibraryCard('CARD-' . $id, $id, new DateTimeImmutable($cardExpiresOn)),
+            [],
+            [$fine]
         );
         $this->members->save($member);
         $this->members->saveCount = 0;

@@ -41,8 +41,7 @@ final class ReturningProcessTest extends LendingTestCase
 
     public function test_a_copy_returned_on_the_due_date_is_not_fined(): void
     {
-        $member = $this->givenMember('member-1');
-        $member->fine(500); // right at the borrowing limit, any new fine would block the member
+        $this->givenMemberOwing('member-1', 500); // right at the borrowing limit, any new fine would block the member
         $this->givenTitle('title-1');
         $this->givenTitle('title-2');
         $this->travelTo('2026-09-01');
@@ -58,8 +57,7 @@ final class ReturningProcessTest extends LendingTestCase
 
     public function test_a_copy_returned_one_day_late_is_fined_and_the_member_at_the_limit_is_blocked(): void
     {
-        $member = $this->givenMember('member-1');
-        $member->fine(500);
+        $this->givenMemberOwing('member-1', 500);
         $this->givenTitle('title-1');
         $this->givenTitle('title-2');
         $this->travelTo('2026-09-01');

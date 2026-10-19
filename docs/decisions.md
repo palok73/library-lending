@@ -32,7 +32,7 @@ Choices made on purpose, with the reason. Status: **decided** (in the code), **o
 
 ### D6. Time is a dependency (decided)
 - Domain and use cases take a PSR-20 `ClockInterface`; tests use `FixedClock`. Nothing calls `new DateTimeImmutable()` for "now".
-- The clock is passed into each use case call, so the caller chooses the time. Could move into the service constructors later.
+- The clock is injected  into the service constructors.
 
 ### D7. Exceptions per process (decided)
 - `BorrowingException`, `ReturningException`, `RenewalException`, `ReservationException`, `FineException` live in `Shared/Domain`, because the aggregates throw them.
@@ -67,7 +67,6 @@ Each has a default that the code currently follows.
 
 ## Known gaps / not built yet
 
-- **Renewing:** `Loan` stores a duration, not a due date, so "28 days from the day of renewal" is not modelled yet. Missing rules: member has other overdue loans, new releases can't be renewed.
 - **3-day hold:** a returned copy stays reserved for the queue without an expiry.
 - **Payments and write-off:** `Member::pay` exists but is not tied to individual fines; fines older than 2 years are not written off. Member keeps both a list of fines and a running balance.
 - **Overdue notices:** no domain events yet. A loan does not "become" overdue by itself, so this needs a scheduled use case that finds overdue loans and emits `LoanBecameOverdue`.

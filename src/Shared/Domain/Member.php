@@ -14,8 +14,7 @@ class Member extends Entity {
         private string $email,
         private LibraryCard $libraryCard,
         private array $loans = [],
-        private array $fines = [],
-        private int $amountOwnedInCents=0) 
+        private array $fines = []) 
     {
         parent::__construct($id);
     }
@@ -31,9 +30,9 @@ class Member extends Entity {
         if ($this->libraryCard->isExpired($clock))
             throw new BorrowingException("Member's card has expired, can't make a new loan!");
             
-        if ($this->amountOwnedInCents > LibraryPolicy::MAX_NEGATIVE_BALANCE_IN_CENTS)
-            throw new BorrowingException("Member has outstanding negative balance lower then ".LibraryPolicy::MAX_NEGATIVE_BALANCE_IN_CENTS." Cents.
-                Until he pay his debts, he can't make new loan.");
+        if ($this->totalFineBalance() > LibraryPolicy::MAX_UNPAID_FINES_IN_CENTS)
+            throw new BorrowingException("Member owing on fees more then ".LibraryPolicy::MAX_UNPAID_FINES_IN_CENTS." Cents.
+                Until he pay his debts, he can't make a new loan.");
             
     }
    
@@ -104,7 +103,6 @@ class Member extends Entity {
         if ($loan->isOverdue($clock)) {
             $fine = $this->createFineForLoan($loan,$clock);
             $this->fines[] = $fine;
-            $this->fine($fine->getAmount());
         }
         $loan->return($clock);
     }
@@ -114,7 +112,7 @@ class Member extends Entity {
     protected function createFineForLoan(Loan $loan,ClockInterface $clock): Fine {
         if(!$loan->isOverdue($clock)) 
             throw new FineException("Loan is not in overdue.");
-        $fine = new Fine(
+        $fine =  Fine::forOverdueLoan(
             Uuid::generate(),
             $loan->getId(),
             $this->getId(),
@@ -124,12 +122,34 @@ class Member extends Entity {
         return $fine;
     }
 
-    public function fine(int $amountInCents): void {
-        $this->amountOwnedInCents += $amountInCents;
+    public function totalFineBalance(): int {
+        $amount = 0;
+        foreach($this->fines as $fine) {
+            $amount+=$fine->getOutstanding();
+        }
+        return $amount;
     }
 
-    public function pay(int $amountInCents): void {
-        $this->amountOwnedInCents -= $amountInCents;
+    public function writeOffOldFines(ClockInterface $clock):void {
+        foreach($this->fines as $fine) {
+            $fine->writeOffIfOld($clock);
+        }
+    }
+
+    public function payFines(int $amount): void {
+        if ($amount > $this->totalFineBalance()) {
+            throw new FineException("Payment is larger then total fine amount.");
+        }
+        if($amount===0) {
+            throw new FineException("Zero payment?");
+        }
+        $remainder = $amount;
+        foreach($this->fines as $fine) {
+            if ($fine->isWrittenOff() || $fine->isPaid())
+                continue;
+            $remainder = $fine->applyPayment($remainder);
+            if ($remainder==0) break;
+        }
     }
 
 }
