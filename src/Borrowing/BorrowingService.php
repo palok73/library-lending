@@ -33,8 +33,9 @@ class BorrowingService {
         if ($title === null) {
             throw new BorrowingException("Title not found: {$titleId}");
         }
-
+	
         // Domain logic
+	// TODO fee management
         $member->checkCanBorrow($this->clock);
         $borrowedCopyId = $title->allocateCopyForBorrowing($member->getId());
         $duePeriod = $title->duePeriod($this->clock);
