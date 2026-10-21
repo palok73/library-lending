@@ -27,8 +27,8 @@ class Title extends Entity
         $this->title = trim($title);
         $this->author = trim($author);
         $this->addedDate = \DateTimeImmutable::createFromInterface($addedDate);
-        $this->copies = \is_array($copies) ? $copies: [];
-        $this->reservations = \is_array($reservations) ? $reservations : [];
+        $this->copies =  $copies;
+        $this->reservations =  $reservations;
         usort($this->reservations, fn($a, $b) => $a->getReservedDate() <=> $b->getReservedDate());
     }   
     public function getTitle():string {

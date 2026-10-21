@@ -11,7 +11,7 @@ Every Title has its language. Title can be identified by ISBN number
 Library has multiply copies of same Title. So one Title has multiply copies which can be lended.
 Copy is identified by internal library number
 ### Member
-Member is someone with a library card. Member has his loans, reservations, fines
+Member is someone with a library card. Member owns his loans and fines
 ### Loan
 Loan is a copy lent to a member until a due date.
 ### Reservation

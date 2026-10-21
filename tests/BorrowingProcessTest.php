@@ -85,8 +85,7 @@ final class BorrowingProcessTest extends LendingTestCase
 
     public function test_a_member_who_owes_more_than_five_euro_cannot_borrow(): void
     {
-        $member = $this->givenMember('member-1');
-        $member->fine(501);
+        $this->givenMemberOwing('member-1', 501);
         $this->givenTitle('title-1');
 
         $this->expectException(BorrowingException::class);
@@ -95,8 +94,7 @@ final class BorrowingProcessTest extends LendingTestCase
 
     public function test_a_member_who_owes_exactly_five_euro_can_still_borrow(): void
     {
-        $member = $this->givenMember('member-1');
-        $member->fine(500);
+        $this->givenMemberOwing('member-1', 500);
         $this->givenTitle('title-1');
 
         $this->borrowing->borrow('member-1', 'title-1');

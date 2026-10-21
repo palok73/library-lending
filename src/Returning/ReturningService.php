@@ -29,6 +29,7 @@ class ReturningService {
         $title->returnCopy($copyId);
         
         // Save both aggregates (within same transaction)
+	// just do it
         $this->memberRepository->save($member);
         $this->titleRepository->save($title);
     }
